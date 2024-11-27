@@ -110,7 +110,13 @@ namespace Gamekit3D
             {
                 PerformArcAttack();
             }
+
+            if (Input.GetKeyDown(KeyCode.Q))
+            {
+                PerformUltimateBeamAttack();
+            }
         }
+    
 
 
         void FixedUpdate()
@@ -336,11 +342,115 @@ namespace Gamekit3D
         }
 
 
+        private float ultimateCooldown = 30.0f;
+        private float nextUltimateTime = 0.0f;
 
+        IEnumerator ShrinkAndDestroy(GameObject beamInstance, float duration)
+        {
+            float elapsedTime = 0f;
+            Vector3 initialScale = beamInstance.transform.localScale;
+            while (elapsedTime < duration)
+            {
+                float scaleAmount = Mathf.Lerp(1f, 0f, elapsedTime / duration);
+                beamInstance.transform.localScale = new Vector3(initialScale.x * scaleAmount, initialScale.y , initialScale.z * scaleAmount);
+                elapsedTime += Time.deltaTime;
+                yield return null;
+            }
+            Destroy(beamInstance);
+        }
 
+        void PerformUltimateBeamAttack()
+        {
+            if (Time.time < nextUltimateTime)
+            {
+                Debug.Log("Ultimate Beam Attack is on cooldown.");
+                return;
+            }
 
+            float beamLength = 20f; // Length of the beam
+            float beamDamage = 100f; // Damage dealt by the beam
+            float beamDuration = 1.5f; // Duration of the beam
 
+            // Create a cylinder to represent the beam
+            GameObject beamInstance = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            if (beamInstance != null)
+            {
+                // Set the initial position to be in front of the player, slightly further away
+                Vector3 beamStartPosition = transform.position + Camera.main.transform.forward * (beamLength + 5.0f); // Move it further away
+                beamStartPosition.y += 1.0f; // Raise the beam above the ground
+                beamInstance.transform.position = beamStartPosition;
 
+                // Set the rotation of the beam to match the camera's forward direction
+                beamInstance.transform.rotation = Quaternion.LookRotation(Camera.main.transform.forward);
+                beamInstance.transform.Rotate(90, 0, 0); // Rotate to align the cylinder horizontally
+
+                // Set the scale to make the beam look like a big cylinder
+                beamInstance.transform.localScale = new Vector3(4, beamLength, 4); // Make the cylinder bigger (Width, Length, Depth)
+
+                // Change the material to make it look more like a beam (optional)
+                Renderer beamRenderer = beamInstance.GetComponent<Renderer>();
+                if (beamRenderer != null)
+                {
+                    beamRenderer.material.color = Color.red; // Change color to red or any desired color
+                }
+
+                // Assign the beam to a specific layer
+                int beamLayer = LayerMask.NameToLayer("Beam");
+                if (beamLayer != -1)
+                {
+                    beamInstance.layer = beamLayer;
+                    // Ignore collision between player and the beam layer
+                    Physics.IgnoreLayerCollision(gameObject.layer, beamLayer);
+                }
+                else
+                {
+                    Debug.LogError("Layer 'Beam' not defined in project settings. Please add it.");
+                }
+
+                // Make sure the player does not collide with the beam
+                Collider beamCollider = beamInstance.GetComponent<Collider>();
+                if (beamCollider != null)
+                {
+                    Collider playerCollider = GetComponent<Collider>();
+                    if (playerCollider != null)
+                    {
+                        Physics.IgnoreCollision(beamCollider, playerCollider);
+                    }
+                }
+
+                // Start the shrinking and destroying coroutine
+                StartCoroutine(ShrinkAndDestroy(beamInstance, beamDuration));
+
+                // Set the next ultimate available time
+                nextUltimateTime = Time.time + ultimateCooldown;
+            }
+            else
+            {
+                Debug.LogError("Failed to create beam cylinder!");
+            }
+
+            // Find all enemies within the beam range
+            RaycastHit[] hits = Physics.SphereCastAll(transform.position, 1.0f, Camera.main.transform.forward, beamLength, enemyLayer);
+
+            foreach (RaycastHit hit in hits)
+            {
+                Damageable enemyDamageable = hit.collider.GetComponentInChildren<Damageable>();
+                if (enemyDamageable != null)
+                {
+                    Debug.Log("Ultimate Beam Attack Executed!");
+                    Damageable.DamageMessage damageMessage = new Damageable.DamageMessage
+                    {
+                        damageSource = transform.position,
+                        damager = this,
+                        amount = (int)beamDamage,
+                        direction = Camera.main.transform.forward,
+                        throwing = false
+                    };
+
+                    enemyDamageable.ApplyDamage(damageMessage);
+                }
+            }
+        }
 
 
 
