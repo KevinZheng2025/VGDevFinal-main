@@ -62,12 +62,11 @@ namespace Gamekit3D
 
         public float aoeRadius = 5f;       // AoE radius
         public float aoeDamage = 50f;      // AoE damage
-        public float aoeCooldown = 3f;     // Cooldown time for AoE
-
-
-        public float circleDisplayTime = 2f; // Duration to display the circle
-
-        private float nextAoETime = 0f;    // Tracks when AoE is available again
+        
+        private float ultimateCooldown = 30.0f;
+        private float nextUltimateTime = 0.0f;
+        private float aoeCooldown = 15.0f;
+        private float nextAoETime = 0.0f;
 
 
         // Other
@@ -115,6 +114,11 @@ namespace Gamekit3D
             {
                 PerformUltimateBeamAttack();
             }
+
+            if (Input.GetKey(KeyCode.E)) // Check AoE input
+            {
+                PerformAoEAttack();
+            }
         }
     
 
@@ -142,13 +146,7 @@ namespace Gamekit3D
 
             jump = Input.GetKey("space");
 
-            bool AoEAttack = Input.GetKey("e");
-
-            if (/*m_Input.AoEAttack*/ AoEAttack && Time.time >= nextAoETime) // Check AoE input and cooldown
-            {
-                PerformAoEAttack();
-                nextAoETime = Time.time + aoeCooldown; // Set next available AoE time
-            }
+            
             bool attack = Input.GetMouseButton(1);
             Vector2 camera = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
 
@@ -211,22 +209,18 @@ namespace Gamekit3D
 
             */
         }
-        void DrawCircle(LineRenderer lineRenderer, float radius, int segments = 50)
-        {
-            lineRenderer.positionCount = segments + 1; // Close the loop
-            float angleStep = 360f / segments;
-
-            for (int i = 0; i <= segments; i++)
-            {
-                float angle = Mathf.Deg2Rad * i * angleStep;
-                float x = Mathf.Cos(angle) * radius;
-                float z = Mathf.Sin(angle) * radius;
-                lineRenderer.SetPosition(i, new Vector3(x, 0, z));
-            }
-        }
-
         void PerformAoEAttack()
         {
+            if (Time.time < nextAoETime)
+            {
+                Debug.Log("AOE Attack is on cooldown.");
+                return;
+            }
+
+            float aoeRadius = 10f; // Radius of the AoE attack
+            float aoeDamage = 50f; // Damage dealt by the AoE attack
+            float circleDisplayTime = 1.5f; // Duration to display the AoE circle
+
             // Hardcoded the AOECircle Prefab
             GameObject aoeCirclePrefab = Resources.Load<GameObject>("AoECircle");
             if (aoeCirclePrefab != null)
@@ -270,7 +264,24 @@ namespace Gamekit3D
                 }
             }
 
+            // Set the next AoE available time
+            nextAoETime = Time.time + aoeCooldown;
         }
+
+        void DrawCircle(LineRenderer lineRenderer, float radius, int segments = 50)
+        {
+            lineRenderer.positionCount = segments + 1; // Close the loop
+            float angleStep = 360f / segments;
+
+            for (int i = 0; i <= segments; i++)
+            {
+                float angle = Mathf.Deg2Rad * i * angleStep;
+                float x = Mathf.Cos(angle) * radius;
+                float z = Mathf.Sin(angle) * radius;
+                lineRenderer.SetPosition(i, new Vector3(x, 0, z));
+            }
+        }
+
 
 
 
@@ -341,9 +352,6 @@ namespace Gamekit3D
             }
         }
 
-
-        private float ultimateCooldown = 30.0f;
-        private float nextUltimateTime = 0.0f;
 
         IEnumerator ShrinkAndDestroy(GameObject beamInstance, float duration)
         {
@@ -698,6 +706,27 @@ namespace Gamekit3D
                     break;
             }
         }
+
+        public float GetRemainingAOECooldown()
+        {
+            return Mathf.Max(0, nextAoETime - Time.time);
+        }
+
+        public float GetAOECooldown()
+        {
+            return aoeCooldown; // Returns the AoE cooldown duration (15 seconds)
+        }
+
+        public float GetRemainingUltimateCooldown()
+        {
+            return Mathf.Max(0, nextUltimateTime - Time.time);
+        }
+
+        public float GetUltimateCooldown()
+        {
+            return ultimateCooldown; // Returns the Ultimate cooldown duration (30 seconds)
+        }
+
     }
 
 }
